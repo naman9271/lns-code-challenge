@@ -1,0 +1,9 @@
+# Compiled binaries
+fp_matmul
+xlns32_matmul
+xlns16_matmul
+matmul_fp
+matmul_x32
+matmul_x16
+*.o
+*.out
