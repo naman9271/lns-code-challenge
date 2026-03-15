@@ -15,13 +15,6 @@
 
 #include <cstdio>
 
-// ---- LNS include (mirrors vec.h include block) ----
-// In the actual ggml integration, this block lives in vec.h:
-//   #ifdef GGML_XLNS16
-//     #include "xlns16.cpp"
-//   #elif defined(GGML_XLNS32)
-//     #include "xlns32.cpp"
-//   #endif
 #ifdef GGML_XLNS16
   #define xlns16_ideal
   #include "../xlnscpp/xlns16.cpp"

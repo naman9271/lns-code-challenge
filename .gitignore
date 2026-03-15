@@ -7,3 +7,4 @@ matmul_x32
 matmul_x16
 *.o
 *.out
+ggml-lns-backend/build
