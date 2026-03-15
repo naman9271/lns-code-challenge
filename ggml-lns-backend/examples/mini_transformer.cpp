@@ -1,4 +1,4 @@
-// demo_mini_transformer.cpp — Mini Transformer Block Demo (FP32 vs LNS)
+// demo_mini_transformer.cpp   Mini Transformer Block Demo (FP32 vs LNS)
 //
 // Runs a COMPLETE transformer layer (attention + FFN) through both the
 // standard ggml CPU backend and the LNS backend, comparing outputs.
@@ -48,9 +48,9 @@ struct transformer_weights {
     std::vector<float> attn_norm;   // (D_MODEL,) RMS norm weights
 
     // FFN
-    std::vector<float> w_gate;      // (D_MODEL, D_FF) — gate projection
-    std::vector<float> w_up;        // (D_MODEL, D_FF) — up projection
-    std::vector<float> w_down;      // (D_FF, D_MODEL) — down projection
+    std::vector<float> w_gate;      // (D_MODEL, D_FF)   gate projection
+    std::vector<float> w_up;        // (D_MODEL, D_FF)   up projection
+    std::vector<float> w_down;      // (D_FF, D_MODEL)   down projection
     std::vector<float> ffn_norm;    // (D_MODEL,) RMS norm weights
 
     // Input
@@ -137,36 +137,36 @@ struct ggml_cgraph * build_transformer_graph(transformer_model & model) {
     model.t_ffn_norm  = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, D_MODEL);
 
     struct ggml_tensor * x = model.t_input;
-    // x: (D_MODEL, SEQ_LEN) — ne[0]=D_MODEL, ne[1]=SEQ_LEN
+    // x: (D_MODEL, SEQ_LEN)   ne[0]=D_MODEL, ne[1]=SEQ_LEN
 
     // Step 1: RMS_NORM (pre-attention normalization)
     struct ggml_tensor * x_norm = ggml_rms_norm(ctx, x, 1e-5f);
-    // Step 2: MUL — apply norm weights (element-wise, with broadcast)
+    // Step 2: MUL   apply norm weights (element-wise, with broadcast)
     x_norm = ggml_mul(ctx, x_norm, model.t_attn_norm);
     // x_norm: (D_MODEL, SEQ_LEN)
 
-    // Step 3: MUL_MAT — Q, K, V projections
+    // Step 3: MUL_MAT   Q, K, V projections
     // mul_mat(W, x) = W^T × x → (W.ne[1], x.ne[1]) = (D_MODEL, SEQ_LEN)
     struct ggml_tensor * Q = ggml_mul_mat(ctx, model.t_w_q, x_norm);
     struct ggml_tensor * K = ggml_mul_mat(ctx, model.t_w_k, x_norm);
     struct ggml_tensor * V = ggml_mul_mat(ctx, model.t_w_v, x_norm);
-    // Q, K, V: all (D_MODEL, SEQ_LEN) — ne[0]=D_MODEL, ne[1]=SEQ_LEN
+    // Q, K, V: all (D_MODEL, SEQ_LEN)   ne[0]=D_MODEL, ne[1]=SEQ_LEN
 
-    // Step 4: MUL_MAT — Attention scores = Q^T × K
+    // Step 4: MUL_MAT   Attention scores = Q^T × K
     // mul_mat(Q, K) = Q^T × K → (Q.ne[1], K.ne[1]) = (SEQ_LEN, SEQ_LEN)
     // But we need Q.ne[0] == K.ne[0] → D_MODEL == D_MODEL ✓
     struct ggml_tensor * scores = ggml_mul_mat(ctx, Q, K);
     // scores: (SEQ_LEN, SEQ_LEN)
 
-    // Step 5: SCALE — divide by sqrt(d_head)
+    // Step 5: SCALE   divide by sqrt(d_head)
     float scale = 1.0f / sqrtf((float)D_HEAD);
     scores = ggml_scale(ctx, scores, scale);
 
-    // Step 6: SOFT_MAX — softmax over attention scores
+    // Step 6: SOFT_MAX   softmax over attention scores
     scores = ggml_soft_max(ctx, scores);
-    // scores: (SEQ_LEN, SEQ_LEN) — attention probabilities
+    // scores: (SEQ_LEN, SEQ_LEN)   attention probabilities
 
-    // Step 7: MUL_MAT — weighted sum: attn_out = V × scores^T
+    // Step 7: MUL_MAT   weighted sum: attn_out = V × scores^T
     // mul_mat(scores, V) = scores^T × V
     // scores.ne[0]=SEQ_LEN, V.ne[0]=D_MODEL → MISMATCH!
     // Instead: mul_mat(V, scores) → V^T × scores
@@ -176,39 +176,39 @@ struct ggml_cgraph * build_transformer_graph(transformer_model & model) {
     // Or use: V has (D_MODEL, SEQ_LEN), we want output (D_MODEL, SEQ_LEN)
     // Use ggml_cont on a permuted V:
     struct ggml_tensor * Vt = ggml_cont(ctx, ggml_transpose(ctx, V));
-    // Vt: (SEQ_LEN, D_MODEL) — ne[0]=SEQ_LEN, ne[1]=D_MODEL
+    // Vt: (SEQ_LEN, D_MODEL)   ne[0]=SEQ_LEN, ne[1]=D_MODEL
     // mul_mat(Vt, scores) = Vt^T × scores → (D_MODEL, SEQ_LEN) ✓
     // Need Vt.ne[0] == scores.ne[0] → SEQ_LEN == SEQ_LEN ✓
     struct ggml_tensor * attn_out = ggml_mul_mat(ctx, Vt, scores);
     // attn_out: (D_MODEL, SEQ_LEN) ✓
 
-    // Step 8: MUL_MAT — Output projection
+    // Step 8: MUL_MAT   Output projection
     attn_out = ggml_mul_mat(ctx, model.t_w_o, attn_out);
     // attn_out: (D_MODEL, SEQ_LEN)
 
-    // Step 9: ADD — Residual connection
+    // Step 9: ADD   Residual connection
     struct ggml_tensor * after_attn = ggml_add(ctx, x, attn_out);
 
     // Step 10: RMS_NORM (pre-FFN normalization)
     struct ggml_tensor * ffn_in = ggml_rms_norm(ctx, after_attn, 1e-5f);
     ffn_in = ggml_mul(ctx, ffn_in, model.t_ffn_norm);
 
-    // Step 11: MUL_MAT — Gate and Up projections
+    // Step 11: MUL_MAT   Gate and Up projections
     struct ggml_tensor * gate = ggml_mul_mat(ctx, model.t_w_gate, ffn_in);
     struct ggml_tensor * up   = ggml_mul_mat(ctx, model.t_w_up,   ffn_in);
     // gate, up: (D_FF, SEQ_LEN)
 
-    // Step 12: SILU — activation on gate
+    // Step 12: SILU   activation on gate
     gate = ggml_silu(ctx, gate);
 
-    // Step 13: MUL — element-wise multiply gate and up
+    // Step 13: MUL   element-wise multiply gate and up
     struct ggml_tensor * ffn_hidden = ggml_mul(ctx, gate, up);
 
-    // Step 14: MUL_MAT — Down projection
+    // Step 14: MUL_MAT   Down projection
     struct ggml_tensor * ffn_out = ggml_mul_mat(ctx, model.t_w_down, ffn_hidden);
     // ffn_out: (D_MODEL, SEQ_LEN)
 
-    // Step 15: ADD — Residual connection
+    // Step 15: ADD   Residual connection
     struct ggml_tensor * output = ggml_add(ctx, after_attn, ffn_out);
 
     // Build the forward graph
@@ -288,7 +288,7 @@ int main(void) {
     srand(42);
 
     printf("══════════════════════════════════════════════════════════\n");
-    printf("  Mini Transformer Block — FP32 vs LNS Backend\n");
+    printf("  Mini Transformer Block   FP32 vs LNS Backend\n");
     printf("══════════════════════════════════════════════════════════\n\n");
 
     printf("  Architecture:\n");

@@ -1,9 +1,9 @@
-// ggml-lns.cpp — Full LNS Backend Implementation for ggml
-// copyright 2025 — GSoC Code Challenge
+// ggml-lns.cpp   Full LNS Backend Implementation for ggml
+// copyright 2025   GSoC Code Challenge
 //
 // Implements ggml's three backend interfaces (buffer_type, buffer, backend)
 // using 16-bit LNS (xlns16) for internal computation.
-// Data enters/exits as FP32 — transparent to ggml.
+// Data enters/exits as FP32   transparent to ggml.
 
 #include "ggml-lns.h"
 #include "ggml.h"

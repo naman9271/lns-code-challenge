@@ -1,4 +1,4 @@
-// demo_lns_matmul.cpp — Backend Comparison Demo (FP32 CPU vs LNS)
+// demo_lns_matmul.cpp   Backend Comparison Demo (FP32 CPU vs LNS)
 //
 // Runs the same matrix multiplication through both the standard ggml CPU
 // backend (FP32) and the LNS backend, then prints side-by-side results
@@ -135,7 +135,7 @@ void fill_random(float * data, int n, float scale) {
 int main(void) {
     ggml_time_init();
     srand(42);
-    printf("  ggml-LNS Backend — Matrix Multiply Comparison Demo\n");
+    printf("  ggml-LNS Backend   Matrix Multiply Comparison Demo\n");
 
     // ---- Initialize backends ----
     ggml_backend_load_all();
